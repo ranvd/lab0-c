@@ -10,7 +10,6 @@
  *   cppcheck-suppress nullPointer
  */
 
-
 /* Create an empty queue */
 struct list_head *q_new()
 {
@@ -143,8 +142,28 @@ bool q_delete_mid(struct list_head *head)
 bool q_delete_dup(struct list_head *head)
 {
     // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
+    element_t *e, *s;
+    struct list_head garbage;
+
+    INIT_LIST_HEAD(&garbage);
+    bool is_this_dup = 0;
+    list_for_each_entry_safe (e, s, head, list) {
+        bool is_next_dup = s != list_entry(head, element_t, list) &&
+                           strcmp(e->value, s->value) == 0;
+        if (is_next_dup || is_this_dup) {
+            list_del(&e->list);
+            list_add(&e->list, &garbage);
+        }
+        is_this_dup = is_next_dup;
+    }
+
+    list_for_each_entry_safe (e, s, &garbage, list) {
+        q_release_element(e);
+    }
+
     return true;
 }
+
 
 /* Swap every two adjacent nodes */
 void q_swap(struct list_head *head)
