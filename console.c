@@ -392,7 +392,7 @@ static bool do_time(int argc, char *argv[])
 }
 
 static bool use_linenoise = true;
-static int web_fd;
+int web_fd = -1;
 
 static bool do_web(int argc, char *argv[])
 {
@@ -685,9 +685,10 @@ bool run_console(char *infile_name)
         return false;
     }
 
+    linenoise_init();
     if (!has_infile) {
         char *cmdline;
-        while (use_linenoise && (cmdline = linenoise(prompt))) {
+        while ((cmdline = linenoise(prompt))) {
             interpret_cmd(cmdline);
             line_history_add(cmdline);       /* Add to the history. */
             line_history_save(HISTORY_FILE); /* Save the history on disk. */
@@ -695,10 +696,10 @@ bool run_console(char *infile_name)
             while (buf_stack && buf_stack->fd != STDIN_FILENO)
                 cmd_select(0, NULL, NULL, NULL, NULL);
             has_infile = false;
-        }
-        if (!use_linenoise) {
-            while (!cmd_done())
-                cmd_select(0, NULL, NULL, NULL, NULL);
+            if (web_connfd) {
+                close(web_connfd);
+                web_connfd = 0;
+            }
         }
     } else {
         while (!cmd_done())

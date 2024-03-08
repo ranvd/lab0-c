@@ -60,6 +60,7 @@ void line_set_free_hints_callback(line_free_hints_callback_t *);
 void line_add_completion(line_completions_t *, const char *);
 /* clang-format on */
 
+int linenoise_init();
 char *linenoise(const char *prompt);
 void line_free(void *ptr);
 int line_history_add(const char *line);
