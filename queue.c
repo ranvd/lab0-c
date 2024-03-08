@@ -15,8 +15,10 @@
 struct list_head *q_new()
 {
     struct list_head *new = malloc(sizeof(struct list_head));
-    INIT_LIST_HEAD(new);
+    if (!new)
+        return NULL;
 
+    INIT_LIST_HEAD(new);
     return new;
 }
 
@@ -24,6 +26,9 @@ struct list_head *q_new()
 void q_free(struct list_head *head)
 {
     element_t *e, *s;
+    if (!head)
+        return;
+
     list_for_each_entry_safe (e, s, head, list) {
         q_release_element(e);
     }
@@ -36,7 +41,15 @@ void q_free(struct list_head *head)
 bool q_insert_head(struct list_head *head, char *s)
 {
     element_t *new = malloc(sizeof(element_t));
+    if (!new)
+        return false;
+
     new->value = strdup(s);
+    if (!new->value) {
+        free(new);
+        return false;
+    }
+
     list_add(&new->list, head);
     return true;
 }
@@ -45,7 +58,15 @@ bool q_insert_head(struct list_head *head, char *s)
 bool q_insert_tail(struct list_head *head, char *s)
 {
     element_t *new = malloc(sizeof(element_t));
+    if (!new)
+        return false;
+
     new->value = strdup(s);
+    if (!new->value) {
+        free(new);
+        return false;
+    }
+
     list_add_tail(&new->list, head);
     return true;
 }
@@ -53,23 +74,32 @@ bool q_insert_tail(struct list_head *head, char *s)
 /* Remove an element from head of queue */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
+    if (!head || list_empty(head))
+        return NULL;
+
     struct list_head *rm = head->next;
     list_del(rm);
 
-    if (sp)
-        strncpy(sp, list_entry(rm, element_t, list)->value, bufsize);
+    if (sp) {
+        strncpy(sp, list_entry(rm, element_t, list)->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    }
 
     return list_entry(rm, element_t, list);
 }
-
 /* Remove an element from tail of queue */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
+    if (!head || list_empty(head))
+        return NULL;
+
     struct list_head *rm = head->prev;
     list_del(rm);
 
-    if (sp)
-        strncpy(sp, list_entry(rm, element_t, list)->value, bufsize);
+    if (sp) {
+        strncpy(sp, list_entry(rm, element_t, list)->value, bufsize - 1);
+        sp[bufsize - 1] = '\0';
+    }
 
     return list_entry(rm, element_t, list);
 }
@@ -378,4 +408,3 @@ int q_merge(struct list_head *head, bool descend)
 
     return q_size(list_entry(f, queue_contex_t, chain)->q);
 }
-
