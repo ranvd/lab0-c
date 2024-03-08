@@ -161,8 +161,142 @@ void q_reverseK(struct list_head *head, int k)
     list_splice(&result, head);
 }
 
+static int element_t_cmp(struct list_head *a, struct list_head *b, bool descend)
+{
+    char *a_value = list_entry(a, element_t, list)->value;
+    char *b_value = list_entry(b, element_t, list)->value;
+
+    return -(strcmp(a_value, b_value) ^ (descend << 31));
+}
+
+static inline size_t run_size(struct list_head *run)
+{
+    if (!run)
+        return 0;
+    if (!run->next)
+        return 1;
+
+    return (size_t) run->next->prev;
+}
+
+static struct list_head *find_run(struct list_head **list, bool descend)
+{
+    struct list_head *next = (*list)->next, *l = *list;
+
+    if (!next) {
+        *list = NULL;
+        return l;
+    }
+
+    struct list_head tmp;
+    INIT_LIST_HEAD(&tmp);
+    list_add(l, &tmp);
+    size_t len = 0;
+
+    if (element_t_cmp(l, next, descend) > 0) {
+        /* don't need to reverse */
+        do {
+            l = next;
+            next = next->next;
+            list_add_tail(l, &tmp);
+            len++;
+        } while (next && element_t_cmp(l, next, descend) > 0);
+    } else {
+        do {
+            l = next;
+            next = next->next;
+            list_add(l, &tmp);
+            len++;
+        } while (next && element_t_cmp(l, next, descend) <= 0);
+    }
+
+    tmp.next->prev = tmp.prev->next = NULL;
+    tmp.next->next->prev = (struct list_head *) len;
+    *list = next;
+    return tmp.next;
+}
+
+static struct list_head *merge_at(struct list_head *list, bool descend)
+{
+    size_t len = run_size(list) + run_size(list->prev);
+    struct list_head *prev = list->prev->prev;
+
+    struct list_head *a = list, *b = list->prev;
+    struct list_head **tail = &list;
+
+    for (;;) {
+        if (element_t_cmp(a, b, descend) > 0) {
+            *tail = a;
+            tail = &a->next;
+            a = a->next;
+            if (!a) {
+                *tail = b;
+                break;
+            }
+        } else {
+            *tail = b;
+            tail = &b->next;
+            b = b->next;
+            if (!b) {
+                *tail = a;
+                break;
+            }
+        }
+    }
+
+    list->prev = prev;
+    list->next->prev = (struct list_head *) len;
+
+    return list;
+}
+
+static struct list_head *merge_force_collapse(struct list_head *stk,
+                                              bool descend)
+{
+    while (stk && stk->prev) {
+        struct list_head **iptr = &stk;
+        while ((*iptr) && (*iptr)->prev) {
+            (*iptr) = merge_at(*iptr, descend);
+            iptr = &(*iptr)->prev;
+        }
+    }
+    return stk;
+}
+
 /* Sort elements of queue in ascending/descending order */
-void q_sort(struct list_head *head, bool descend) {}
+void q_sort(struct list_head *head, bool descend)
+{
+    /* Timsort
+     * refer to 2024q1 test2 in: https://hackmd.io/@sysprog/linux2024-quiz1
+     */
+    if (!head || head == head->next || head == head->next->next)
+        return;
+
+    /* convert circular-lined list into singly-linked list */
+    struct list_head *list = head->next, *stk_ptr = NULL, *tmp;
+    list_del_init(head);
+    list->prev = list->prev->next = NULL;
+
+    int stk_size = 0;
+    while (list) {
+        tmp = find_run(&list, descend);
+        stk_size++;
+        tmp->prev = stk_ptr;
+        stk_ptr = tmp;
+        // stk_ptr = merge_collapse(stk_ptr, &stk_size, descend);
+    }
+
+    list = merge_force_collapse(stk_ptr, descend);
+
+    for (struct list_head *safe = list->next;;) {
+        list_add_tail(list, head);
+        list = safe;
+        if (!list)
+            break;
+        safe = safe->next;
+    }
+}
+
 
 /* Remove every node which has a node with a strictly less value anywhere to
  * the right side of it */
