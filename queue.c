@@ -56,18 +56,7 @@ bool q_insert_head(struct list_head *head, char *s)
 /* Insert an element at tail of queue */
 bool q_insert_tail(struct list_head *head, char *s)
 {
-    element_t *new = malloc(sizeof(element_t));
-    if (!new)
-        return false;
-
-    new->value = strdup(s);
-    if (!new->value) {
-        free(new);
-        return false;
-    }
-
-    list_add_tail(&new->list, head);
-    return true;
+    return q_insert_head(head->prev, s);
 }
 
 /* Remove an element from head of queue */
@@ -89,18 +78,7 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 /* Remove an element from tail of queue */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || list_empty(head))
-        return NULL;
-
-    struct list_head *rm = head->prev;
-    list_del(rm);
-
-    if (sp) {
-        strncpy(sp, list_entry(rm, element_t, list)->value, bufsize - 1);
-        sp[bufsize - 1] = '\0';
-    }
-
-    return list_entry(rm, element_t, list);
+    return q_remove_head(head->prev->prev, sp, bufsize);
 }
 
 /* Return number of elements in queue */
@@ -120,7 +98,7 @@ int q_size(struct list_head *head)
 /* Delete the middle node in queue */
 bool q_delete_mid(struct list_head *head)
 {
-    if (!head || head == head->next)
+    if (!head || list_empty(head))
         return false;
 
     struct list_head *slow, *fast;
@@ -318,7 +296,7 @@ void q_sort(struct list_head *head, bool descend)
     /* Timsort
      * refer to 2024q1 test2 in: https://hackmd.io/@sysprog/linux2024-quiz1
      */
-    if (!head || head == head->next || head == head->next->next)
+    if (!head || head == head->next)
         return;
 
     /* convert circular-lined list into singly-linked list */
